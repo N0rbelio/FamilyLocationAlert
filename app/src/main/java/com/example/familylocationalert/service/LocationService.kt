@@ -42,10 +42,21 @@ class LocationService(
                 onLocationChanged(location)
             }
         }
-        fusedLocationClient.requestLocationUpdates(
-            request,
-            locationCallback!!,
-            Looper.getMainLooper()
-        )
+        locationCallback?.let {
+            fusedLocationClient.requestLocationUpdates(
+                request,
+                it,
+                Looper.getMainLooper()
+            )
+        }
+    }
+    fun stopLocationUpdates() {
+
+        locationCallback?.let {
+
+            fusedLocationClient.removeLocationUpdates(it)
+        }
+
+        locationCallback = null
     }
 }
