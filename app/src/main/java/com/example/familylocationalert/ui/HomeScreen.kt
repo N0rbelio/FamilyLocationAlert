@@ -13,10 +13,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 
 @Composable
 fun HomeScreen() {
+
     val homeViewModel: HomeViewModel = viewModel()
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+
+        if (granted) {
+            homeViewModel.startMonitoring()
+        }
+    }
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
@@ -38,11 +51,27 @@ fun HomeScreen() {
                 "🔴 Parado"
         )
 
+        Spacer(modifier = Modifier.height(24.dp))
+
+        if (homeViewModel.monitoring) {
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text("Latitude:")
+            Text(
+                homeViewModel.latitude?.toString() ?: "A obter localização..."
+            )
+
+            Text("Longitude:")
+            Text(
+                homeViewModel.longitude?.toString() ?: "A obter localização..."
+            )
+        }
+
         Spacer(modifier = Modifier.height(32.dp))
 
         Button(
             onClick = {
-                homeViewModel.startMonitoring()
+                permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
             }
         ) {
             Text("Iniciar Monitorização")

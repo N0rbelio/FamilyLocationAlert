@@ -36,6 +36,9 @@ class HomeViewModel(
 
         monitoring = false
 
+        latitude = null
+        longitude = null
+
         locationService.stopLocationUpdates()
     }
 
