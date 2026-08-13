@@ -24,6 +24,9 @@ import com.example.familylocationalert.ui.components.LocationsSection
 import com.example.familylocationalert.ui.components.MonitoringSection
 import com.example.familylocationalert.ui.components.TestSection
 import androidx.compose.foundation.layout.statusBarsPadding
+import android.os.Build
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 
 @Composable
 fun HomeScreen() {
@@ -33,7 +36,14 @@ fun HomeScreen() {
     val context = LocalContext.current
     val permissionManager = PermissionManager(context)
 
-    val permissionLauncher =
+    var configuring by remember { mutableStateOf(false) }
+
+    var name by remember { mutableStateOf("") }
+    var latitude by remember { mutableStateOf("") }
+    var longitude by remember { mutableStateOf("") }
+    var radius by remember { mutableStateOf("200") }
+
+    val notificationPermissionLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestPermission()
         ) { granted ->
@@ -43,12 +53,31 @@ fun HomeScreen() {
             }
         }
 
-    var configuring by remember { mutableStateOf(false) }
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { granted ->
 
-    var name by remember { mutableStateOf("") }
-    var latitude by remember { mutableStateOf("") }
-    var longitude by remember { mutableStateOf("") }
-    var radius by remember { mutableStateOf("200") }
+            if (granted) {
+
+                if (
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+
+                    notificationPermissionLauncher.launch(
+                        Manifest.permission.POST_NOTIFICATIONS
+                    )
+
+                } else {
+
+                    homeViewModel.startMonitoring()
+                }
+            }
+        }
 
 
     LazyColumn(
@@ -84,16 +113,27 @@ fun HomeScreen() {
 
                 onStart = {
 
-                    if (permissionManager.hasLocationPermission()) {
-
-                        homeViewModel.startMonitoring()
-
-                    } else {
+                    if (!permissionManager.hasLocationPermission()) {
 
                         permissionLauncher.launch(
                             Manifest.permission.ACCESS_FINE_LOCATION
                         )
 
+                    } else if (
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+
+                        notificationPermissionLauncher.launch(
+                            Manifest.permission.POST_NOTIFICATIONS
+                        )
+
+                    } else {
+
+                        homeViewModel.startMonitoring()
                     }
 
                 },

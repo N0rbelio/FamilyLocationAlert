@@ -8,11 +8,15 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.familylocationalert.data.DatabaseProvider
 import com.example.familylocationalert.data.LocationPoint
-
-import com.example.familylocationalert.service.LocationService
 import kotlinx.coroutines.launch
 import android.location.Location
-
+import com.example.familylocationalert.data.DefaultLocations
+import android.content.Intent
+import androidx.core.content.ContextCompat
+import com.example.familylocationalert.service.LocationForegroundService
+import androidx.lifecycle.viewModelScope
+import com.example.familylocationalert.service.LocationMonitorState
+import kotlinx.coroutines.flow.collectLatest
 
 class HomeViewModel(
     application: Application
@@ -33,35 +37,123 @@ class HomeViewModel(
     var testResult by mutableStateOf("")
         private set
 
-    private val locationService = LocationService(getApplication())
 
     private val locationDao =
         DatabaseProvider.getDatabase(getApplication()).locationDao()
 
     init {
         loadLocations()
+        observeLocationService()
     }
 
-    private val locationStates = mutableMapOf<String, Boolean>()
+
+
+
+    private fun observeLocationService() {
+
+        viewModelScope.launch {
+
+            LocationMonitorState.currentLocation.collectLatest { location ->
+
+                latitude = location?.latitude
+                longitude = location?.longitude
+            }
+        }
+
+        viewModelScope.launch {
+
+            LocationMonitorState.locationStatuses.collectLatest { statuses ->
+
+                if (statuses.isEmpty()) {
+                    testResult = ""
+                    return@collectLatest
+                }
+
+                val result = StringBuilder()
+
+                result.appendLine("📍 Posição atual:")
+
+                val currentLat = latitude
+                val currentLon = longitude
+
+                if (currentLat != null && currentLon != null) {
+
+                    result.appendLine(
+                        "$currentLat, $currentLon"
+                    )
+                }
+
+                result.appendLine()
+
+                statuses.forEach { status ->
+
+                    result.appendLine(
+                        "📌 ${status.name}"
+                    )
+
+                    result.appendLine(
+                        "Distância: " +
+                                "${status.distanceMeters.toInt()} m"
+                    )
+
+                    if (status.isInside) {
+
+                        result.appendLine(
+                            "✅ Dentro da zona"
+                        )
+
+                    } else {
+
+                        result.appendLine(
+                            "❌ Fora da zona"
+                        )
+                    }
+
+                    result.appendLine()
+                }
+
+                testResult = result.toString()
+            }
+        }
+    }
+
+
 
     private fun loadLocations() {
         viewModelScope.launch {
             locations = locationDao.getAll()
+
+            println(
+                "HomeViewModel: " +
+                        "locais carregados = ${locations.size}"
+            )
+
+            locations.forEach {
+                println(
+                    "HomeViewModel: " +
+                            "${it.name} -> ${it.latitude}, ${it.longitude}"
+                )
+            }
         }
     }
 
     fun startMonitoring() {
 
+        val intent = Intent(
+            getApplication(),
+            LocationForegroundService::class.java
+        )
+
+        ContextCompat.startForegroundService(
+            getApplication(),
+            intent
+        )
+
         monitoring = true
-
-        locationService.startLocationUpdates { currentLocation ->
-
-            latitude = currentLocation.latitude
-            longitude = currentLocation.longitude
-
-            checkLocations(currentLocation)
-        }
     }
+
+    private val locationStates =
+        mutableMapOf<String, Boolean>()
 
     private fun checkLocations(currentLocation: Location) {
 
@@ -121,16 +213,22 @@ class HomeViewModel(
 
     fun stopMonitoring() {
 
+        val intent = Intent(
+            getApplication(),
+            LocationForegroundService::class.java
+        )
+
+        getApplication<Application>()
+            .stopService(intent)
+
         monitoring = false
 
         latitude = null
         longitude = null
 
-        locationService.stopLocationUpdates()
-
         locationStates.clear()
 
-        locationService.stopLocationUpdates()
+        LocationMonitorState.clear()
     }
 
     fun saveLocation(
@@ -153,6 +251,18 @@ class HomeViewModel(
             locationDao.insert(location)
 
             locations = locationDao.getAll()
+
+            println(
+                "HomeViewModel: " +
+                        "locais após guardar = ${locations.size}"
+            )
+
+            locations.forEach {
+                println(
+                    "HomeViewModel: " +
+                            "${it.name} -> ${it.latitude}, ${it.longitude}"
+                )
+            }
         }
     }
 
@@ -163,16 +273,33 @@ class HomeViewModel(
         }
     }
 
-    fun simulateLocation(latitude: Double, longitude: Double) {
+    fun simulateLocation(
+        latitude: Double,
+        longitude: Double
+    ) {
 
-        val simulatedLocation = Location("simulation").apply {
-            this.latitude = latitude
-            this.longitude = longitude
+        val intent = Intent(
+            getApplication(),
+            LocationForegroundService::class.java
+        ).apply {
+
+            action =
+                LocationForegroundService.ACTION_SIMULATE_LOCATION
+
+            putExtra(
+                LocationForegroundService.EXTRA_LATITUDE,
+                latitude
+            )
+
+            putExtra(
+                LocationForegroundService.EXTRA_LONGITUDE,
+                longitude
+            )
         }
 
-        this.latitude = latitude
-        this.longitude = longitude
-
-        checkLocations(simulatedLocation)
+        ContextCompat.startForegroundService(
+            getApplication(),
+            intent
+        )
     }
 }
