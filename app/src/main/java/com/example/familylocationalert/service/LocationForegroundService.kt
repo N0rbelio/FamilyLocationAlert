@@ -13,7 +13,6 @@ import android.os.IBinder
 import android.os.Looper
 import androidx.core.content.ContextCompat
 import com.example.familylocationalert.data.DatabaseProvider
-import com.example.familylocationalert.data.LocationPoint
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -25,9 +24,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import android.os.Handler
+import android.util.Log
+import com.example.familylocationalert.config.AppConfig
 
 
 class LocationForegroundService : Service() {
+
+    private val handler =
+        Handler(Looper.getMainLooper())
+
+    private lateinit var eventProcessor: LocationEventProcessor
 
     private val serviceScope =
         CoroutineScope(
@@ -44,6 +51,21 @@ class LocationForegroundService : Service() {
 
         const val EXTRA_LATITUDE = "latitude"
         const val EXTRA_LONGITUDE = "longitude"
+
+
+        // apenas para DEV
+        //private const val TEST_MODE = true
+        private val updateInterval =
+            if (AppConfig.TEST_MODE)
+                AppConfig.LOCATION_UPDATE_INTERVAL
+            else
+                5_000L
+
+        private val minUpdateInterval =
+            if (AppConfig.TEST_MODE)
+                AppConfig.LOCATION_MIN_UPDATE_INTERVAL
+            else
+                3_000L
     }
 
     private lateinit var fusedLocationClient:
@@ -61,15 +83,30 @@ class LocationForegroundService : Service() {
     private val locationChecker =
         LocationChecker()
 
-
+    private lateinit var locationNotificationManager:
+            LocationNotificationManager
 
     override fun onCreate() {
         super.onCreate()
 
         createNotificationChannel()
 
+        locationNotificationManager =
+            LocationNotificationManager(this)
+
         fusedLocationClient =
             LocationServices.getFusedLocationProviderClient(this)
+
+        LocationMonitorState.setMonitoring(true)
+
+        val smsSender =
+            SmsSender(this)
+
+        eventProcessor =
+            LocationEventProcessor(
+                locationNotificationManager,
+                smsSender
+            )
     }
 
     override fun onStartCommand(
@@ -140,12 +177,15 @@ class LocationForegroundService : Service() {
             return
         }
 
+
+
         val request = LocationRequest.Builder(
             Priority.PRIORITY_HIGH_ACCURACY,
-            5000L
+            updateInterval
         )
-            .setMinUpdateIntervalMillis(3000L)
+            .setMinUpdateIntervalMillis(minUpdateInterval)
             .build()
+
 
         locationCallback = object : LocationCallback() {
 
@@ -183,11 +223,16 @@ class LocationForegroundService : Service() {
     private fun checkLocations(
         currentLocation: Location
     ) {
+        Log.d("LocationChecker", "checkLocations chamado")
 
         serviceScope.launch {
 
+            Log.d("LocationChecker", "Coroutine iniciada")
+
             val locations =
                 locationDao.getAll()
+
+            Log.d("LocationChecker", "Locais encontrados=${locations.size}")
 
             if (locations.isEmpty()) {
 
@@ -204,27 +249,38 @@ class LocationForegroundService : Service() {
                     locations
                 )
 
+
             LocationMonitorState.updateStatuses(
+                statuses
+            )
+
+            eventProcessor.process(
                 statuses
             )
         }
     }
 
+
+    // Apenas utilizado durante desenvolvimento.
     private fun simulateLocation(
         latitude: Double,
         longitude: Double
     ) {
 
+        println(
+            "LocationForegroundService: GPS pausado para teste"
+        )
+
+        stopLocationUpdates()
+
         val simulatedLocation =
             Location("simulation").apply {
-
                 this.latitude = latitude
                 this.longitude = longitude
             }
 
         println(
-            "LocationForegroundService: " +
-                    "SIMULAÇÃO $latitude, $longitude"
+            "LocationForegroundService: SIMULAÇÃO $latitude, $longitude"
         )
 
         LocationMonitorState.updateLocation(
@@ -234,6 +290,16 @@ class LocationForegroundService : Service() {
         checkLocations(
             simulatedLocation
         )
+
+        handler.postDelayed({
+
+            println(
+                "LocationForegroundService: GPS retomado"
+            )
+
+            startLocationUpdates()
+
+        }, 20_000)
     }
 
     private fun stopLocationUpdates() {
@@ -247,8 +313,6 @@ class LocationForegroundService : Service() {
 
         locationCallback = null
 
-        locationChecker.clear()
-
         LocationMonitorState.clear()
 
         println(
@@ -258,6 +322,8 @@ class LocationForegroundService : Service() {
     }
 
     override fun onDestroy() {
+
+        LocationMonitorState.setMonitoring(false)
 
         stopLocationUpdates()
 

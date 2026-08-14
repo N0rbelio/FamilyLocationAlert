@@ -13,6 +13,18 @@ object LocationMonitorState {
     val currentLocation: StateFlow<Location?> =
         _currentLocation.asStateFlow()
 
+    private val _monitoring =
+        MutableStateFlow(false)
+
+    val monitoring: StateFlow<Boolean> =
+        _monitoring.asStateFlow()
+
+    fun setMonitoring(
+        monitoring: Boolean
+    ) {
+        _monitoring.value = monitoring
+    }
+
     private val _locationStatuses =
         MutableStateFlow<List<LocationStatus>>(emptyList())
 
@@ -34,10 +46,10 @@ object LocationMonitorState {
         _locationStatuses.value = emptyList()
     }
 
-    fun simulateLocation(
-        location: Location
-    ) {
-        _currentLocation.value = location
-    }
+    //fun simulateLocation(
+     //   location: Location
+    //) {
+   //     _currentLocation.value = location
+    //}
 
 }

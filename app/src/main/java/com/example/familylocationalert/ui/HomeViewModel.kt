@@ -9,12 +9,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.familylocationalert.data.DatabaseProvider
 import com.example.familylocationalert.data.LocationPoint
 import kotlinx.coroutines.launch
-import android.location.Location
-import com.example.familylocationalert.data.DefaultLocations
 import android.content.Intent
 import androidx.core.content.ContextCompat
 import com.example.familylocationalert.service.LocationForegroundService
-import androidx.lifecycle.viewModelScope
 import com.example.familylocationalert.service.LocationMonitorState
 import kotlinx.coroutines.flow.collectLatest
 
@@ -50,6 +47,14 @@ class HomeViewModel(
 
 
     private fun observeLocationService() {
+
+        viewModelScope.launch {
+
+            LocationMonitorState.monitoring.collectLatest {
+
+                monitoring = it
+            }
+        }
 
         viewModelScope.launch {
 
@@ -149,66 +154,6 @@ class HomeViewModel(
             intent
         )
 
-        monitoring = true
-    }
-
-    private val locationStates =
-        mutableMapOf<String, Boolean>()
-
-    private fun checkLocations(currentLocation: Location) {
-
-        if (locations.isEmpty()) {
-            testResult = "Não existem locais configurados."
-            return
-        }
-
-        val result = StringBuilder()
-
-        result.appendLine(
-            "📍 Posição atual:"
-        )
-
-        result.appendLine(
-            "${currentLocation.latitude}, ${currentLocation.longitude}"
-        )
-
-        result.appendLine()
-
-        locations.forEach { location ->
-
-            val targetLocation = Location("configured_location").apply {
-                latitude = location.latitude
-                longitude = location.longitude
-            }
-
-            val distance = currentLocation.distanceTo(targetLocation)
-
-            val isInside = distance <= location.radiusMeters
-            val wasInside = locationStates[location.id] ?: false
-
-            if (isInside && !wasInside) {
-                println("ENTROU em ${location.name}")
-            }
-
-            if (!isInside && wasInside) {
-                println("SAIU de ${location.name}")
-            }
-
-            locationStates[location.id] = isInside
-
-            result.appendLine("📌 ${location.name}")
-            result.appendLine("Distância: ${distance.toInt()} m")
-
-            if (isInside) {
-                result.appendLine("✅ Dentro da zona")
-            } else {
-                result.appendLine("❌ Fora da zona")
-            }
-
-            result.appendLine()
-        }
-
-        testResult = result.toString()
     }
 
     fun stopMonitoring() {
@@ -220,13 +165,6 @@ class HomeViewModel(
 
         getApplication<Application>()
             .stopService(intent)
-
-        monitoring = false
-
-        latitude = null
-        longitude = null
-
-        locationStates.clear()
 
         LocationMonitorState.clear()
     }
