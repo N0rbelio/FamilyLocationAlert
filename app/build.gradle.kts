@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.familylocationalert"
+    namespace = "com.n0rbelio.familylocationalert"
     compileSdk {
         version = release(37)
     }
