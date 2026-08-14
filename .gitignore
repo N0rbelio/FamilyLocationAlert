@@ -34,3 +34,4 @@ secrets.properties
 google-services.json
 
 DefaultLocations.kt
+LocationDao_impl.kt

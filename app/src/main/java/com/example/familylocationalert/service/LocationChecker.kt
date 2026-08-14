@@ -6,7 +6,7 @@ import com.example.familylocationalert.data.LocationPoint
 class LocationChecker {
 
     private val locationStates =
-        mutableMapOf<String, Boolean>()
+        mutableMapOf<String, Boolean?>()
 
     fun check(
         currentLocation: Location,
@@ -29,39 +29,56 @@ class LocationChecker {
             val isInside =
                 distance <= location.radiusMeters
 
-            val wasInside =
-                locationStates[location.id] ?: false
+            val previousInside =
+                locationStates[location.id]
 
-            if (isInside && !wasInside) {
+            val event =
+                when (previousInside) {
 
-                println(
-                    "ENTROU em ${location.name} " +
-                            "(${distance.toInt()} m)"
-                )
-            }
+                    null -> {
+                        // Primeira localização conhecida.
+                        // Apenas inicializamos o estado.
+                        LocationEvent.NONE
+                    }
 
-            if (!isInside && wasInside) {
+                    false -> {
+                        if (isInside) {
+                            LocationEvent.ENTERED
+                        } else {
+                            LocationEvent.NONE
+                        }
+                    }
 
-                println(
-                    "SAIU de ${location.name} " +
-                            "(${distance.toInt()} m)"
-                )
-            }
+                    true -> {
+                        if (!isInside) {
+                            LocationEvent.EXITED
+                        } else {
+                            LocationEvent.NONE
+                        }
+                    }
+                }
 
             locationStates[location.id] =
                 isInside
 
-            println(
-                "Zona: ${location.name} | " +
-                        "Distância: ${distance.toInt()} m | " +
-                        "Dentro: $isInside"
+            //println(
+            //    "Zona=${location.name} " +
+            //            "Dist=${distance.toInt()}m " +
+           //             "Dentro=$isInside " +
+           //             "Anterior=$previousState " +
+          //              "Evento=$event"
+          //  )
+            android.util.Log.d(
+                        "LocationChecker",
+                "Zona=${location.name} Dist=${distance.toInt()}m Dentro=$isInside Anterior=$previousInside Evento=$event"
             )
 
             LocationStatus(
                 locationId = location.id,
                 name = location.name,
                 distanceMeters = distance,
-                isInside = isInside
+                isInside = isInside,
+                event = event
             )
         }
     }
