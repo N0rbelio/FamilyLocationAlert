@@ -241,7 +241,7 @@ fun HomeScreen() {
                     homeViewModel.locations.firstOrNull()?.let { location ->
 
                         homeViewModel.simulateLocation(
-                            latitude = location.latitude + 0.01,
+                            latitude = location.latitude + 0.12,
                             longitude = location.longitude
                         )
 

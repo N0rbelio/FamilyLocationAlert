@@ -165,8 +165,6 @@ class HomeViewModel(
 
         getApplication<Application>()
             .stopService(intent)
-
-        LocationMonitorState.clear()
     }
 
     fun saveLocation(
@@ -182,8 +180,7 @@ class HomeViewModel(
                 name = name,
                 latitude = latitude,
                 longitude = longitude,
-                radiusMeters = radiusMeters,
-                phoneNumbers = emptyList()
+                radiusMeters = radiusMeters
             )
 
             locationDao.insert(location)
