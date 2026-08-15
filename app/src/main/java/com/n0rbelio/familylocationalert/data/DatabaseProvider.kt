@@ -14,9 +14,14 @@ object DatabaseProvider {
                 context.applicationContext,
                 AppDatabase::class.java,
                 "family_location_alert.db"
-            ).build().also {
-                INSTANCE = it
-            }
+            )
+                .fallbackToDestructiveMigration(
+                    dropAllTables = true
+                )
+                .build()
+                .also {
+                    INSTANCE = it
+                }
         }
     }
 }

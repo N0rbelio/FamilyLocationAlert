@@ -28,8 +28,9 @@ import android.os.Handler
 import android.util.Log
 import com.n0rbelio.familylocationalert.config.AppConfig
 
-
 class LocationForegroundService : Service() {
+
+
 
     private val handler =
         Handler(Looper.getMainLooper())
@@ -47,25 +48,10 @@ class LocationForegroundService : Service() {
         const val NOTIFICATION_ID = 1001
 
         const val ACTION_SIMULATE_LOCATION =
-            "com.example.familylocationalert.action.SIMULATE_LOCATION"
+            "com.n0rbelio.familylocationalert.action.SIMULATE_LOCATION"
 
         const val EXTRA_LATITUDE = "latitude"
         const val EXTRA_LONGITUDE = "longitude"
-
-
-        // apenas para DEV
-        //private const val TEST_MODE = true
-        private val updateInterval =
-            if (AppConfig.TEST_MODE)
-                AppConfig.LOCATION_UPDATE_INTERVAL
-            else
-                5_000L
-
-        private val minUpdateInterval =
-            if (AppConfig.TEST_MODE)
-                AppConfig.LOCATION_MIN_UPDATE_INTERVAL
-            else
-                3_000L
     }
 
     private lateinit var fusedLocationClient:
@@ -73,6 +59,13 @@ class LocationForegroundService : Service() {
 
     private var locationCallback:
             LocationCallback? = null
+
+
+    // ================APEMAS PARA SIMULAÇÂO E TESTES================
+    private var simulationActive = false
+    private var locationProcessingGeneration = 0
+    // ==============================================================
+
 
     private val locationDao by lazy {
         DatabaseProvider
@@ -157,6 +150,14 @@ class LocationForegroundService : Service() {
     @SuppressLint("MissingPermission")
     private fun startLocationUpdates() {
 
+        if (simulationActive) {
+            Log.d(
+                "LocationForegroundService",
+                "GPS não iniciado: simulação ativa"
+            )
+            return
+        }
+
         if (
             ContextCompat.checkSelfPermission(
                 this,
@@ -177,21 +178,27 @@ class LocationForegroundService : Service() {
             return
         }
 
-
-
         val request = LocationRequest.Builder(
             Priority.PRIORITY_HIGH_ACCURACY,
-            updateInterval
+            currentUpdateInterval
         )
-            .setMinUpdateIntervalMillis(minUpdateInterval)
+            .setMinUpdateIntervalMillis(
+                minOf(
+                    currentUpdateInterval,
+                    AppConfig.OUTSIDE_MIN_UPDATE_INTERVAL
+                )
+            )
             .build()
-
 
         locationCallback = object : LocationCallback() {
 
             override fun onLocationResult(
                 result: LocationResult
             ) {
+
+                if (simulationActive) {
+                    return
+                }
 
                 val location =
                     result.lastLocation
@@ -220,10 +227,23 @@ class LocationForegroundService : Service() {
         )
     }
 
+    private val locationEnteredAt =
+        mutableMapOf<String, Long>()
+
+
+    //private var currentUpdateInterval =
+      //  AppConfig.OUTSIDE_UPDATE_INTERVAL
+
+    private var currentUpdateInterval =
+        AppConfig.outsideUpdateInterval()
+
     private fun checkLocations(
         currentLocation: Location
     ) {
         Log.d("LocationChecker", "checkLocations chamado")
+
+        val generation =
+            locationProcessingGeneration
 
         serviceScope.launch {
 
@@ -249,8 +269,37 @@ class LocationForegroundService : Service() {
                     locations
                 )
 
+            if (generation != locationProcessingGeneration) {
+                Log.d(
+                    "LocationForegroundService",
+                    "Resultado descartado: geração antiga"
+                )
+                return@launch
+            }
+
+            val now = System.currentTimeMillis()
+
+            statuses.forEach { status ->
+
+                when (status.event) {
+
+                    LocationEvent.ENTERED -> {
+                        locationEnteredAt[status.locationId] = now
+                    }
+
+                    LocationEvent.EXITED -> {
+                        locationEnteredAt.remove(status.locationId)
+                    }
+
+                    LocationEvent.NONE -> Unit
+                }
+            }
 
             LocationMonitorState.updateStatuses(
+                statuses
+            )
+
+            updateLocationInterval(
                 statuses
             )
 
@@ -260,12 +309,142 @@ class LocationForegroundService : Service() {
         }
     }
 
+    private fun calculateUpdateInterval(
+        statuses: List<LocationStatus>
+    ): Long {
+
+        val now = System.currentTimeMillis()
+
+        val insideStatuses =
+            statuses.filter { it.isInside }
+
+        // Não está dentro de nenhuma zona
+        if (insideStatuses.isEmpty()) {
+            return AppConfig.outsideUpdateInterval()
+        }
+
+        // Procuramos há quanto tempo está dentro
+        // da zona em que entrou mais recentemente
+        var insideTime = Long.MAX_VALUE
+
+        insideStatuses.forEach { status ->
+
+            val enteredAt =
+                locationEnteredAt[status.locationId]
+
+            if (enteredAt != null) {
+
+                val time =
+                    now - enteredAt
+
+                Log.d(
+                    "LocationForegroundService",
+                    "Zona ${status.name}: dentro há ${time / 60_000} minutos"
+                )
+
+                if (time < insideTime) {
+                    insideTime = time
+                }
+
+            } else {
+
+                Log.d(
+                    "LocationForegroundService",
+                    "Zona ${status.name}: dentro, mas hora de entrada desconhecida"
+                )
+
+                locationEnteredAt[status.locationId] = now
+
+                // Assumimos que acabou de entrar
+                insideTime =
+                    0L
+            }
+
+        }
+
+       // return when {
+
+        //    insideTime < AppConfig.JUST_ENTERED_UPDATE_INTERVAL ->
+      //          AppConfig.JUST_ENTERED_UPDATE_INTERVAL
+
+        //    insideTime < AppConfig.LONG_INSIDE_THRESHOLD ->
+       //         AppConfig.INSIDE_UPDATE_INTERVAL
+
+        //    else ->
+        //        AppConfig.LONG_INSIDE_UPDATE_INTERVAL
+       // }
+        return when {
+
+            insideTime < AppConfig.justEnteredUpdateInterval() ->
+                AppConfig.justEnteredUpdateInterval()
+
+            insideTime < AppConfig.longInsideThreshold() ->
+                AppConfig.insideUpdateInterval()
+
+            else ->
+                AppConfig.longInsideUpdateInterval()
+        }
+    }
+
+    private fun updateLocationInterval(
+        statuses: List<LocationStatus>
+    ) {
+
+        val newInterval =
+            calculateUpdateInterval(statuses)
+
+        if (newInterval == currentUpdateInterval) {
+            return
+        }
+
+       // Log.d(
+        //    "LocationForegroundService",
+       //     "Intervalo: " +
+        //            "${currentUpdateInterval / 60_000} min → " +
+       //             "${newInterval / 60_000} min"
+        //)
+        Log.d(
+            "LocationForegroundService",
+            "Intervalo: " +
+                    "${currentUpdateInterval / 1000}s → " +
+                    "${newInterval / 1000}s"
+        )
+
+        currentUpdateInterval = newInterval
+
+        restartLocationUpdates()
+    }
+
+    private fun restartLocationUpdates() {
+
+        locationCallback?.let { callback ->
+
+            fusedLocationClient.removeLocationUpdates(
+                callback
+            )
+        }
+
+        locationCallback = null
+
+        if (simulationActive) {
+            Log.d(
+                "LocationForegroundService",
+                "GPS não reiniciado: simulação ativa"
+            )
+            return
+        }
+
+        startLocationUpdates()
+    }
 
     // Apenas utilizado durante desenvolvimento.
     private fun simulateLocation(
         latitude: Double,
         longitude: Double
     ) {
+
+        simulationActive = true
+        locationProcessingGeneration++
 
         println(
             "LocationForegroundService: GPS pausado para teste"
@@ -291,7 +470,11 @@ class LocationForegroundService : Service() {
             simulatedLocation
         )
 
+
         handler.postDelayed({
+
+            simulationActive = false
+            locationProcessingGeneration++
 
             println(
                 "LocationForegroundService: GPS retomado"
@@ -300,6 +483,9 @@ class LocationForegroundService : Service() {
             startLocationUpdates()
 
         }, 20_000)
+
+
+
     }
 
     private fun stopLocationUpdates() {
