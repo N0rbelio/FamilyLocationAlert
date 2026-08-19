@@ -36,12 +36,20 @@ class SmsSender(
                     SmsManager::class.java
                 )
 
+            println(
+                "SmsSender: ${System.currentTimeMillis()} - a enviar SMS para $phoneNumber"
+            )
+
             smsManager.sendTextMessage(
                 phoneNumber,
                 null,
                 message,
                 null,
                 null
+            )
+
+            println(
+                "SmsSender: ${System.currentTimeMillis()} - pedido entregue ao Android"
             )
 
             println(

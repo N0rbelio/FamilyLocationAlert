@@ -14,6 +14,17 @@ import androidx.core.content.ContextCompat
 import com.n0rbelio.familylocationalert.service.LocationForegroundService
 import com.n0rbelio.familylocationalert.service.LocationMonitorState
 import kotlinx.coroutines.flow.collectLatest
+import com.n0rbelio.familylocationalert.data.Contact
+import com.n0rbelio.familylocationalert.data.LocationContactCrossRef
+import android.Manifest
+import android.location.Location
+import android.content.pm.PackageManager
+import com.google.android.gms.location.CurrentLocationRequest
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import android.annotation.SuppressLint
+import com.n0rbelio.familylocationalert.data.SmsAlertMode
+
 
 class HomeViewModel(
     application: Application
@@ -34,9 +45,110 @@ class HomeViewModel(
     var testResult by mutableStateOf("")
         private set
 
+    var selectedContactIds by mutableStateOf<Set<String>>(emptySet())
+        private set
+
 
     private val locationDao =
         DatabaseProvider.getDatabase(getApplication()).locationDao()
+
+    private val contactDao =
+        DatabaseProvider.getDatabase(getApplication()).contactDao()
+
+    private val locationContactDao =
+        DatabaseProvider.getDatabase(getApplication()).locationContactDao()
+
+
+    @SuppressLint("MissingPermission")
+    fun getCurrentLocation(
+        onResult: (Double, Double) -> Unit,
+        onError: () -> Unit
+    ) {
+
+        val context = getApplication<Application>()
+
+        val fusedLocationClient =
+            LocationServices.getFusedLocationProviderClient(context)
+
+        val request =
+            CurrentLocationRequest.Builder()
+                .setPriority(
+                    Priority.PRIORITY_HIGH_ACCURACY
+                )
+                .setMaxUpdateAgeMillis(5_000)
+                .build()
+
+        fusedLocationClient
+            .getCurrentLocation(request, null)
+            .addOnSuccessListener { location ->
+
+                if (location != null) {
+
+                    onResult(
+                        location.latitude,
+                        location.longitude
+                    )
+
+                } else {
+
+                    onError()
+                }
+            }
+            .addOnFailureListener {
+
+                onError()
+            }
+    }
+
+//    fun getCurrentLocation(
+//        onResult: (latitude: Double, longitude: Double) -> Unit,
+//        onError: () -> Unit
+//    ) {
+//        val context = getApplication<Application>()
+//
+//        if (
+//            ContextCompat.checkSelfPermission(
+//                context,
+//                Manifest.permission.ACCESS_FINE_LOCATION
+//            ) != PackageManager.PERMISSION_GRANTED &&
+//            ContextCompat.checkSelfPermission(
+//                context,
+//                Manifest.permission.ACCESS_COARSE_LOCATION
+//            ) != PackageManager.PERMISSION_GRANTED
+//        ) {
+//            onError()
+//            return
+//        }
+//
+//        val fusedLocationClient =
+//            LocationServices.getFusedLocationProviderClient(context)
+//
+//        val request = CurrentLocationRequest.Builder()
+//            .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+//            .setMaxUpdateAgeMillis(5_000)
+//            .build()
+//
+//        fusedLocationClient
+//            .getCurrentLocation(request, null)
+//            .addOnSuccessListener { location ->
+//
+//                if (location != null) {
+//
+//                    onResult(
+//                        location.latitude,
+//                        location.longitude
+//                    )
+//
+//                } else {
+//
+//                    onError()
+//                }
+//            }
+//            .addOnFailureListener {
+//
+//                onError()
+//            }
+//    }
 
     init {
         loadLocations()
@@ -44,7 +156,120 @@ class HomeViewModel(
     }
 
 
+    fun updateLocation(
+        id: String,
+        name: String,
+        latitude: Double,
+        longitude: Double,
+        radiusMeters: Float,
+        smsAlertMode: SmsAlertMode,
+        trackTime: Boolean
+    ) {
+        viewModelScope.launch {
 
+            locationDao.update(
+                id = id,
+                name = name,
+                latitude = latitude,
+                longitude = longitude,
+                radiusMeters = radiusMeters,
+                smsAlertMode = smsAlertMode,
+                trackTime = trackTime
+            )
+
+            locations = locationDao.getAll()
+        }
+    }
+
+
+    suspend fun getContactIdsForLocation(
+        locationId: String
+    ): Set<String> {
+
+        return locationContactDao
+            .getContactIdsForLocation(locationId)
+            .toSet()
+    }
+
+    fun loadContactsForLocation(
+        locationId: String
+    ) {
+        viewModelScope.launch {
+
+            selectedContactIds =
+                locationContactDao
+                    .getContactIdsForLocation(locationId)
+                    .toSet()
+        }
+    }
+
+
+    fun saveLocationContacts(
+        locationId: String,
+        contactIds: Set<String>
+    ) {
+
+        viewModelScope.launch {
+
+            locationContactDao
+                .deleteContactsFromLocation(locationId)
+
+            contactIds.forEach { contactId ->
+
+                locationContactDao.insert(
+                    LocationContactCrossRef(
+                        locationId = locationId,
+                        contactId = contactId
+                    )
+                )
+            }
+        }
+    }
+
+    suspend fun getContactsForLocation(
+        locationId: String
+    ): List<Contact> {
+
+        val contactIds =
+            locationContactDao.getContactIdsForLocation(
+                locationId
+            )
+
+        if (contactIds.isEmpty()) {
+            return emptyList()
+        }
+
+        return contactDao
+            .getAll()
+            .filter {
+                it.id in contactIds
+            }
+    }
+
+
+    fun saveContactsForLocation(
+        locationId: String,
+        contactIds: List<String>
+    ) {
+
+        viewModelScope.launch {
+
+            locationContactDao
+                .deleteContactsFromLocation(
+                    locationId
+                )
+
+            contactIds.forEach { contactId ->
+
+                locationContactDao.insert(
+                    LocationContactCrossRef(
+                        locationId = locationId,
+                        contactId = contactId
+                    )
+                )
+            }
+        }
+    }
 
     private fun observeLocationService() {
 
@@ -171,7 +396,10 @@ class HomeViewModel(
         name: String,
         latitude: Double,
         longitude: Double,
-        radiusMeters: Float
+        radiusMeters: Float,
+        contactIds: Set<String>,
+        smsAlertMode: SmsAlertMode,
+        trackTime: Boolean
     ) {
         viewModelScope.launch {
 
@@ -180,24 +408,34 @@ class HomeViewModel(
                 name = name,
                 latitude = latitude,
                 longitude = longitude,
-                radiusMeters = radiusMeters
+                radiusMeters = radiusMeters,
+                smsAlertMode = smsAlertMode,
+                trackTime = trackTime
             )
 
             locationDao.insert(location)
+
+            contactIds.forEach { contactId ->
+
+                locationContactDao.insert(
+                    LocationContactCrossRef(
+                        locationId = location.id,
+                        contactId = contactId
+                    )
+                )
+            }
 
             locations = locationDao.getAll()
 
             println(
                 "HomeViewModel: " +
-                        "locais após guardar = ${locations.size}"
+                        "zona criada = ${location.name}"
             )
 
-            locations.forEach {
-                println(
-                    "HomeViewModel: " +
-                            "${it.name} -> ${it.latitude}, ${it.longitude}"
-                )
-            }
+            println(
+                "HomeViewModel: " +
+                        "contactos associados = ${contactIds.size}"
+            )
         }
     }
 
@@ -237,4 +475,23 @@ class HomeViewModel(
             intent
         )
     }
+
+    fun resumeRealLocation() {
+
+        val intent = Intent(
+            getApplication(),
+            LocationForegroundService::class.java
+        ).apply {
+
+            action =
+                LocationForegroundService
+                    .ACTION_RESUME_REAL_LOCATION
+        }
+
+        ContextCompat.startForegroundService(
+            getApplication(),
+            intent
+        )
+    }
+
 }
