@@ -35,11 +35,7 @@ class LocationChecker {
             val event =
                 when (previousInside) {
 
-                    null -> {
-                        // Primeira localização conhecida.
-                        // Apenas inicializamos o estado.
-                        LocationEvent.NONE
-                    }
+                    null -> LocationEvent.NONE
 
                     false -> {
                         if (isInside) {
@@ -58,19 +54,15 @@ class LocationChecker {
                     }
                 }
 
-            locationStates[location.id] =
-                isInside
+            locationStates[location.id] = isInside
 
-            //println(
-            //    "Zona=${location.name} " +
-            //            "Dist=${distance.toInt()}m " +
-           //             "Dentro=$isInside " +
-           //             "Anterior=$previousState " +
-          //              "Evento=$event"
-          //  )
             android.util.Log.d(
-                        "LocationChecker",
-                "Zona=${location.name} Dist=${distance.toInt()}m Dentro=$isInside Anterior=$previousInside Evento=$event"
+                "LocationChecker",
+                "Zona=${location.name} " +
+                        "Dist=${distance.toInt()}m " +
+                        "Dentro=$isInside " +
+                        "Anterior=$previousInside " +
+                        "Evento=$event"
             )
 
             LocationStatus(

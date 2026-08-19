@@ -35,3 +35,7 @@ google-services.json
 
 DefaultLocations.kt
 LocationDao_impl.kt
+
+# Logs
+*.logcat
+*.log
