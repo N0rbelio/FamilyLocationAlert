@@ -1,10 +1,27 @@
 # FamilyLocationAlert
 
-**FamilyLocationAlert** is an Android application designed to monitor a device's location and automatically detect when it enters or leaves predefined locations.
+### Android location monitoring and family location alerts
 
-The application can notify the user through Android notifications and, optionally, send SMS alerts to configured contacts.
+FamilyLocationAlert is an Android application for monitoring a device's location, detecting entry and exit events from configurable geographical zones, and optionally notifying selected contacts through SMS.
 
-> ⚠️ **Development status:** The project is currently under active development. APIs, UI, database structures and features may change between versions.
+> ⚠️ **Development status:** FamilyLocationAlert is currently under active development. Version `0.0.8` is not considered a final release, and application behaviour, UI, database structures and internal architecture may change in future versions.
+
+[![Build](https://github.com/N0rbelio/FamilyLocationAlert/actions/workflows/build.yml/badge.svg)](https://github.com/N0rbelio/FamilyLocationAlert/actions/workflows/build.yml)
+[![License](https://img.shields.io/github/license/N0rbelio/FamilyLocationAlert)](LICENSE)
+
+---
+
+## Overview
+
+FamilyLocationAlert allows you to define geographical locations and monitor whether the device enters or leaves those areas.
+
+When a location event occurs, the application can:
+
+- Display a local notification
+- Send an SMS alert to selected contacts
+- Apply different alert rules depending on the configured location
+
+The application is designed to perform the core monitoring functionality directly on the Android device without requiring a remote backend.
 
 ---
 
@@ -31,128 +48,286 @@ The application can notify the user through Android notifications and, optionall
 
 ## How It Works
 
-### 📍 Location Monitoring
+The application continuously monitors the device location through Android's location services while the monitoring service is active.
 
-- Continuous location monitoring using Android's Fused Location Provider.
-- Foreground Service for reliable background location monitoring.
-- Detection of entering and leaving predefined locations.
-- Configurable location radius.
-- Multiple locations can be configured.
-- Location monitoring continues while the application is minimized.
+Location updates are processed by the application and compared against the configured geographical zones.
 
-### 🔋 Adaptive Location Updates
-
-The application dynamically adjusts the location update frequency depending on the current state:
-
-| State | Production interval |
-|---|---:|
-| Outside a zone | 1 minute |
-| Just entered a zone | 15 minutes |
-| Inside a zone | 1 hour |
-| Inside for a long period | 3 hours |
-
-During development and testing, shorter intervals can be enabled through the application configuration.
-
-This approach is intended to reduce battery consumption while maintaining faster detection when the device is outside configured locations.
-
-### 🔔 Notifications
-
-The application generates Android notifications when:
-
-- A configured location is entered.
-- A configured location is exited.
-
-### 📱 SMS Alerts
-
-SMS alerts can be configured per location.
-
-Supported modes include:
-
-- Entry only
-- Exit only
-- Entry and exit
-
-SMS messages are sent directly through the device's SIM/mobile network using Android's SMS functionality.
-
-Example:
-
-```text
-Entrou em Casa
-```
-
-or:
-
-```text
-Saiu de Casa
-```
-
-### 👥 Contacts
-
-Contacts can be created and managed inside the application.
-
-A location can have multiple associated contacts.
-
-Contacts are stored locally and can be selected when configuring a location.
-
-### 🗺️ Location Management
-
-Users can:
-
-- Create locations.
-- Edit locations.
-- Delete locations.
-- Configure coordinates.
-- Configure location radius.
-- Associate contacts with locations.
-- Configure SMS alert behavior.
-
-### 🧪 Development / Test Mode
-
-The application includes a development test mode that allows location monitoring intervals to be reduced for testing.
-
-Production:
-
-```text
-Outside:       1 minute
-Just entered:  15 minutes
-Inside:        1 hour
-Long inside:   3 hours
-```
-
-Test mode:
-
-```text
-Outside:       10 seconds
-Just entered:  20 seconds
-Inside:        30 seconds
-Long inside:   1 minute
-```
-
-This allows location monitoring behaviour to be tested without waiting for the production intervals.
+~~~text
+                 ┌─────────────────────┐
+                 │   Android Device    │
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                 ┌─────────────────────┐
+                 │ Fused Location      │
+                 │ Provider            │
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                 ┌─────────────────────┐
+                 │ Location Monitoring │
+                 │ Foreground Service  │
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                 ┌─────────────────────┐
+                 │ Zone Detection      │
+                 └──────────┬──────────┘
+                            │
+                    ┌───────┴───────┐
+                    ▼               ▼
+               ┌─────────┐     ┌─────────┐
+               │ Entered │     │ Exited  │
+               └────┬────┘     └────┬────┘
+                    │               │
+                    └───────┬───────┘
+                            ▼
+                 ┌─────────────────────┐
+                 │ Event Processor     │
+                 └──────────┬──────────┘
+                            │
+                  ┌─────────┴─────────┐
+                  ▼                   ▼
+          ┌──────────────┐     ┌──────────────┐
+          │ Notification │     │ SMS Alert    │
+          └──────────────┘     └──────────────┘
+~~~
 
 ---
 
-## Architecture
+## Zones
 
-FamilyLocationAlert is built using modern Android technologies.
+Each location can be configured with:
 
-### Main technologies
+| Property | Description |
+|---|---|
+| Name | Name of the location |
+| Latitude | Geographic latitude |
+| Longitude | Geographic longitude |
+| Radius | Detection radius in meters |
+| Contacts | Contacts associated with the location |
+| SMS mode | Entry, exit, or both |
+
+Example:
+
+~~~text
+Home
+├── Radius: 150 m
+├── Entry: enabled
+├── Exit: enabled
+└── Contacts:
+    ├── Contact 1
+    └── Contact 2
+~~~
+
+---
+
+## SMS Alerts
+
+SMS messages are sent directly through the device's SIM card using Android's SMS functionality.
+
+No external SMS API is required for sending alerts.
+
+Available alert modes:
+
+| Mode | Entry SMS | Exit SMS |
+|---|---:|---:|
+| Entry only | ✓ | |
+| Exit only | | ✓ |
+| Entry & Exit | ✓ | ✓ |
+
+Example entry notification:
+
+~~~text
+Entrou em Casa
+~~~
+
+Example exit notification:
+
+~~~text
+Saiu de Casa
+~~~
+
+SMS alerts are only sent to contacts associated with the specific location that generated the event.
+
+---
+
+## Adaptive Location Monitoring
+
+The application dynamically adjusts location update intervals depending on the current monitoring state.
+
+### Production intervals
+
+| State | Update interval |
+|---|---:|
+| Outside all zones | 1 minute |
+| Just entered a zone | 15 minutes |
+| Inside a zone | 1 hour |
+| Inside for an extended period | 3 hours |
+
+When the device exits a zone, monitoring returns to the more frequent outside-zone interval.
+
+This approach is intended to reduce battery consumption while maintaining useful location monitoring.
+
+### Development/Test Mode
+
+During development, shorter intervals can be enabled to make testing easier.
+
+Current test intervals:
+
+| State | Test interval |
+|---|---:|
+| Outside all zones | 10 seconds |
+| Just entered | 20 seconds |
+| Inside | 30 seconds |
+| Long inside | 1 minute |
+
+The test configuration is intended for development and testing and is not the final production configuration.
+
+---
+
+## Local Notifications
+
+Location events generate local Android notifications.
+
+For example:
+
+~~~text
+FamilyLocationAlert
+
+Entrou em Casa
+~~~
+
+or:
+
+~~~text
+FamilyLocationAlert
+
+Saiu de Casa
+~~~
+
+Notifications allow the device user to immediately see when a zone event has occurred.
+
+---
+
+## Contact Management
+
+Contacts are stored locally in the application's Room database.
+
+Each contact can contain:
+
+- Name
+- Phone number
+
+Contacts can then be associated with individual geographical zones.
+
+This allows different locations to notify different people.
+
+For example:
+
+~~~text
+Casa
+├── João
+└── Maria
+
+Escola
+└── João
+
+Trabalho
+└── Maria
+~~~
+
+---
+
+## Data Storage
+
+The application uses **Room** for persistent local storage.
+
+The database contains information related to:
+
+- Locations
+- Contacts
+- Location/contact relationships
+- SMS alert configuration
+
+The relationship between locations and contacts is represented through a many-to-many association.
+
+~~~text
+Location
+   │
+   │
+   ├──── LocationContactCrossRef ──── Contact
+   │
+   └──── SMS Alert Configuration
+~~~
+
+All of this data is stored locally on the Android device.
+
+---
+
+## Technology Stack
 
 - Kotlin
 - Jetpack Compose
-- Android SDK
-- AndroidX
+- Android Jetpack
 - Room
 - Kotlin Coroutines
-- ViewModel
+- Google Play Services Location
 - Fused Location Provider
-- Foreground Services
-- Android Notifications
+- Android Foreground Services
 - Android SMS APIs
 
-### Project structure
+---
 
-```text
+## Requirements
+
+- Android 8.1 / API 27 or newer
+- Android device with location services
+- Location permissions
+- Background location permission
+- Notification permission on supported Android versions
+- SIM card and SMS capability for SMS alerts
+
+The application is primarily intended to run on a physical Android device.
+
+---
+
+## Permissions
+
+Depending on the features being used, FamilyLocationAlert requires Android permissions related to:
+
+- Precise location
+- Approximate location
+- Background location
+- SMS
+- Notifications
+- Network state
+
+Some Android versions and manufacturers may apply additional restrictions to background location and foreground services.
+
+Battery optimization settings may also affect long-term background monitoring.
+
+---
+
+## Installation
+
+Clone the repository:
+
+~~~bash
+git clone https://github.com/N0rbelio/FamilyLocationAlert.git
+~~~
+
+Open the project with Android Studio.
+
+Allow Gradle to synchronize the project and run the `app` configuration on a physical Android device.
+
+The required Android permissions must be granted before location monitoring can operate correctly.
+
+---
+
+## Project Structure
+
+~~~text
 app/
 └── src/
     └── main/
@@ -162,320 +337,194 @@ app/
         │       ├── data/
         │       ├── service/
         │       ├── ui/
-        │       └── MainActivity.kt
+        │       └── ...
         │
-        ├── res/
-        └── AndroidManifest.xml
-```
+        └── res/
+~~~
 
-### Data layer
+### Main Components
 
-The application uses **Room** for local persistence.
-
-The database currently contains entities and relationships for:
-
-- Locations
-- Contacts
-- Location/contact relationships
-- SMS alert configuration
-
-The relationship between locations and contacts is represented using a Room many-to-many relationship.
-
-```text
-Location
-   │
-   │
-   ├── LocationContactCrossRef
-   │
-   │
-Contact
-```
+| Package | Purpose |
+|---|---|
+| `config` | Application configuration |
+| `data` | Room database, entities, converters and DAOs |
+| `service` | Location monitoring, event processing and SMS handling |
+| `ui` | Compose screens, dialogs and ViewModels |
 
 ---
 
-## Location Monitoring
+## Location Monitoring Architecture
 
-Location monitoring is handled by a foreground service.
+The location monitoring system is built around an Android Foreground Service.
 
-The main monitoring flow is:
+The main flow is:
 
-```text
-Fused Location Provider
-        │
-        ▼
+~~~text
+FusedLocationProviderClient
+            │
+            ▼
 LocationForegroundService
-        │
-        ▼
+            │
+            ▼
 LocationChecker
-        │
-        ▼
+            │
+            ▼
 LocationStatus
-        │
-        ▼
+            │
+            ▼
 LocationEventProcessor
-        │
-        ├── Notification
-        │
-        └── SMS
-```
+          /   \
+         /     \
+        ▼       ▼
+Notification   SMS
+Manager        Sender
+~~~
 
-The application determines whether the device is inside or outside each configured location.
-
-When a state transition is detected, an event is generated:
-
-```text
-NONE
-ENTERED
-EXITED
-```
-
-The event processor then handles the appropriate notification and SMS behaviour.
+This separates location acquisition, zone detection and alert handling into different components.
 
 ---
 
-## Permissions
+## Event Detection
 
-The application may request the following Android permissions:
+The application currently handles three location event states:
 
-### Location
+| Event | Description |
+|---|---|
+| `NONE` | No change in zone state |
+| `ENTERED` | Device entered a configured zone |
+| `EXITED` | Device left a configured zone |
 
-```text
-ACCESS_FINE_LOCATION
-ACCESS_COARSE_LOCATION
-ACCESS_BACKGROUND_LOCATION
-```
-
-Background location access is required for the application's core functionality because location monitoring is intended to continue while the application is not actively being used.
-
-### SMS
-
-```text
-SEND_SMS
-```
-
-This permission is used to send configured location alerts through the device's mobile network.
-
-### Notifications
-
-```text
-POST_NOTIFICATIONS
-```
-
-Required on supported Android versions for displaying application notifications.
-
-### Foreground Service
-
-```text
-FOREGROUND_SERVICE
-FOREGROUND_SERVICE_LOCATION
-```
-
-Required for the foreground location monitoring service on supported Android versions.
+When an event is detected, the event processor determines which actions should be performed based on the location configuration.
 
 ---
 
-## Android Compatibility
+## Version 0.0.8
 
-The application targets modern Android versions and uses Android's foreground-service and runtime permission requirements.
+Version `0.0.8` represents a significant expansion of the project.
 
-Some permissions, especially background location and SMS access, are subject to Android and Google Play policies.
+### Added
 
-If distributing the application through Google Play, the application's use of these permissions must comply with the applicable Google Play policies.
+- Contact management
+- Contact database entities
+- Contact DAO
+- Location/contact relationships
+- Location/contact cross-reference database
+- Configurable SMS alert modes
+- Contact selection when configuring locations
+- Location creation screen
+- Location editing screen
+- Location management screen
+- Contacts management screen
+- Administrative screen
+- SMS alert selection interface
+- Location event processing
+- Adaptive location monitoring configuration
+- Development/test monitoring intervals
 
----
+### Changed
 
-## Installation
+- Expanded Room database architecture
+- Updated location data model
+- Updated location DAOs
+- Updated foreground location service
+- Improved location checking
+- Improved SMS handling
+- Expanded Home screen
+- Expanded HomeViewModel
+- Reworked application navigation and UI structure
+- Removed the previous location monitoring service architecture
+- Consolidated functionality into the current foreground-service based monitoring system
 
-### Requirements
+### Removed
 
-- Android Studio
-- Android SDK
-- JDK compatible with the project's Gradle/Android configuration
-- Android device or emulator
-
-For SMS testing, a physical Android device with SMS capability and an active SIM/mobile network is recommended.
-
-### Clone the repository
-
-```bash
-git clone https://github.com/N0rbelio/FamilyLocationAlert.git
-cd FamilyLocationAlert
-```
-
-Open the project in Android Studio and allow Gradle to synchronize the project.
-
-Then build and run the application on a compatible Android device.
-
----
-
-## Configuration
-
-Application configuration is located under:
-
-```text
-app/src/main/java/com/n0rbelio/familylocationalert/config/
-```
-
-Development and testing values can be configured through `AppConfig`.
-
-Example:
-
-```kotlin
-const val TEST_MODE = true
-```
-
-When test mode is enabled, shorter location update intervals are used.
-
-Before production use, test mode should be disabled:
-
-```kotlin
-const val TEST_MODE = false
-```
+- Legacy `LocationMonitoringService`
+- Legacy `LocationService`
+- Previous location UI components that were replaced by the new screen architecture
+- Previous `PermissionManager` implementation
+- Hardcoded configuration previously used by older versions
 
 ---
 
-## SMS Configuration
+## Development Status
 
-SMS alerts are configured per location.
+FamilyLocationAlert is still an experimental project.
 
-Each location can define whether SMS alerts should be sent for:
+The application is functional, but the project architecture is still evolving.
 
-```text
-ENTRY_ONLY
-EXIT_ONLY
-BOTH
-```
+Future versions may include:
 
-Contacts associated with the location receive the corresponding alert.
+- Further battery optimization
+- Improved location accuracy handling
+- Improved Android background execution compatibility
+- Better error handling
+- UI improvements
+- Configuration improvements
+- Additional testing
+- Code cleanup and refactoring
+- Improved documentation
 
-The application sends SMS directly through Android's `SmsManager`/device SMS functionality rather than using an external HTTP SMS provider.
-
-This means:
-
-- No external SMS API is required.
-- No external SMS service account is required.
-- The device must have SMS capability.
-- The SIM/mobile operator handles the actual SMS transmission.
-- Normal mobile-network SMS charges may apply.
-
----
-
-## Privacy
-
-FamilyLocationAlert is designed around local device storage.
-
-Location data, configured locations and contacts are stored locally on the Android device through Room.
-
-The project does not require a remote server for its core location monitoring functionality.
-
-The application may access:
-
-- Device location
-- Configured contacts
-- Phone numbers configured for SMS alerts
-- Mobile network/SMS functionality
-
-These permissions are used to provide the application's location monitoring and alert functionality.
-
-Users should review the source code and Android permission prompts before deploying the application.
-
----
-
-## Security
-
-Do not commit private credentials, signing keys, API keys or other sensitive information to the repository.
-
-The repository's `.gitignore` excludes common sensitive files such as:
-
-```text
-*.jks
-*.keystore
-*.p12
-.env
-.env.*
-secrets.properties
-local.properties
-```
-
-If you introduce a new secret or credential into the project, add the corresponding file or pattern to `.gitignore` before committing it.
-
----
-
-## Development
-
-The project is developed incrementally through versioned branches.
-
-Current development branch:
-
-```text
-version-0.0.8
-```
-
-The project uses versioned releases to separate major development stages.
-
-Previous versions include:
-
-```text
-v0.0.1
-v0.0.2
-v0.0.3
-v0.0.4
-v0.0.5
-v0.0.6
-v0.0.7
-v0.0.8
-```
-
----
-
-## Roadmap
-
-Planned improvements include:
-
-- Further battery optimization.
-- Improved location monitoring reliability.
-- Improved background execution handling.
-- Better SMS delivery handling.
-- Improved contact management.
-- Improved location management UI.
-- Improved error handling.
-- Codebase cleanup and refactoring.
-- Improved testing.
-- Additional configuration options.
-- Improved Android version compatibility.
-- Better documentation.
-
-The codebase may also undergo structural cleanup in future versions as features stabilize.
-
----
-
-## Known Limitations
-
-Because Android aggressively manages background execution and battery usage, behaviour can vary between manufacturers and Android versions.
-
-Some manufacturers apply additional background restrictions that may affect location monitoring.
-
-For reliable background monitoring, users may need to allow the application to run without battery optimization restrictions depending on the device.
-
-SMS functionality also depends on:
-
-- Device hardware
-- SIM availability
-- Mobile network coverage
-- Android permissions
-- Carrier restrictions
+The codebase may therefore contain temporary development code, test configuration and implementation details that are expected to change in future versions.
 
 ---
 
 ## Pull Requests
 
-Pull Requests may be submitted for bug fixes, improvements or other changes.
+Pull Requests may be submitted for discussion, bug fixes or proposed improvements.
 
-All Pull Requests are reviewed at the maintainer's discretion. Submission of a Pull Request does not guarantee that the proposed changes will be accepted or merged.
+However, submitting a Pull Request does **not** guarantee that the proposed changes will be accepted or merged.
 
-The maintainer may accept, reject, request changes to, or close a Pull Request without merging it.
+The project maintainer retains full discretion over whether a Pull Request is reviewed, modified, accepted, rejected or closed.
 
-For substantial changes, it is recommended to open an issue first to discuss the proposed change.
+---
+
+## Issues
+
+Bug reports and feature requests can be submitted through GitHub Issues.
+
+When reporting a problem, please provide:
+
+- Android version
+- Device model
+- FamilyLocationAlert version
+- Steps to reproduce
+- Expected behaviour
+- Actual behaviour
+- Relevant logs when applicable
+
+Please do not publish private location information, phone numbers or other sensitive personal information in public issues.
+
+---
+
+## Privacy
+
+FamilyLocationAlert is designed around local device functionality.
+
+The core application does not require a remote backend or cloud database.
+
+Location data, configured zones, contacts and alert configuration are stored locally on the device.
+
+SMS alerts are sent through the device's cellular network.
+
+Because location and contact information can be sensitive, users should ensure that the application is used appropriately and that required permissions are granted knowingly.
+
+---
+
+## Security
+
+Do not commit sensitive information to the repository.
+
+This includes:
+
+- Phone numbers belonging to real users
+- API keys
+- Passwords
+- Authentication tokens
+- Private certificates
+- Signing keys
+- Private configuration files
+- Personal location information
+
+Development configuration should use placeholder values where appropriate.
 
 ---
 
@@ -483,49 +532,35 @@ For substantial changes, it is recommended to open an issue first to discuss the
 
 FamilyLocationAlert is licensed under the **GNU General Public License v3.0**.
 
-This means that you are free to:
-
-- Use the software.
-- Study the source code.
-- Modify the software.
-- Redistribute the software.
-
-However, when distributing modified versions of the software, the GPLv3 requires the corresponding source code to remain available under the same license.
+This means that modified and redistributed versions of the project must comply with the GPLv3 license requirements, including the corresponding source-code requirements when the license applies.
 
 See the [`LICENSE`](LICENSE) file for the complete license text.
 
 ---
 
-## Third-Party Libraries
-
-FamilyLocationAlert uses open-source libraries and frameworks from the Android ecosystem.
-
-These dependencies remain subject to their respective licenses and terms.
-
-Important dependencies include:
-
-- AndroidX
-- Jetpack Compose
-- Room
-- Kotlin
-- Kotlin Coroutines
-- Google Play Services Location
-
-Their respective licenses and notices should be reviewed when redistributing the application.
-
----
-
 ## Disclaimer
 
-FamilyLocationAlert is provided as an open-source project for personal and development purposes.
+FamilyLocationAlert is an experimental project under active development.
 
-The application deals with location monitoring and automated notifications. It should not be relied upon as the sole mechanism for safety-critical monitoring.
+Location accuracy and monitoring reliability depend on:
 
-Always verify that the application behaves correctly on the target Android device before relying on it for important notifications.
+- GPS availability
+- Android location services
+- Device hardware
+- Battery optimization
+- Manufacturer-specific Android restrictions
+- Network conditions
+- Mobile carrier behaviour
+
+SMS delivery also depends on the device, SIM card, mobile network and carrier.
+
+FamilyLocationAlert should **not** be relied upon as the sole solution for safety-critical, emergency or life-critical situations.
 
 ---
 
-## Repository
+## Author
+
+**N0rbelio**
 
 GitHub:
 
@@ -533,22 +568,14 @@ https://github.com/N0rbelio/FamilyLocationAlert
 
 ---
 
-## Author
+## Current Version
 
-Developed by **N0rbelio**.
+**0.0.8**
 
 ---
 
-## License Summary
+## Project Status
 
-```text
-FamilyLocationAlert
-Copyright (C) 2026 N0rbelio
+🚧 **Active development**
 
-Licensed under the GNU General Public License v3.0.
-
-You may use, modify and redistribute this software,
-provided that derivative works are distributed under
-the same GPLv3 license and the corresponding source
-code is made available.
-```
+The current `0.0.8` version is a development milestone and should not be considered a stable final release.
