@@ -24,19 +24,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import android.os.Handler
 import android.util.Log
 import com.n0rbelio.familylocationalert.config.AppConfig
 import com.n0rbelio.familylocationalert.data.LocationPoint
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+
 class LocationForegroundService : Service() {
-
-
-
-    private val handler =
-        Handler(Looper.getMainLooper())
 
     private lateinit var eventProcessor: LocationEventProcessor
 
@@ -65,17 +60,38 @@ class LocationForegroundService : Service() {
 
     }
 
+    private var lastProcessedLocationTime = 0L
+
+    private fun isDuplicateLocation(
+        location: Location
+    ): Boolean {
+
+        if (location.time <= lastProcessedLocationTime) {
+            return true
+        }
+
+        lastProcessedLocationTime = location.time
+
+        return false
+    }
+
     private lateinit var fusedLocationClient:
             FusedLocationProviderClient
 
-    private var locationCallback:
-            LocationCallback? = null
+    private var locationCallback: LocationCallback? = null
 
+    private var currentUpdateInterval =
+        AppConfig.outsideUpdateInterval()
+
+    private var currentPriority =
+        Priority.PRIORITY_HIGH_ACCURACY
 
     // ================APEMAS PARA SIMULAÇÂO E TESTES================
     private var simulationActive = false
 
     private var locationProcessingGeneration = 0
+
+    private var locationCallbackGeneration = 0
     // ==============================================================
 
 
@@ -116,6 +132,10 @@ class LocationForegroundService : Service() {
 
         LocationMonitorState.setMonitoring(true)
 
+        LocationMonitorState.updatePriority(
+            currentPriority
+        )
+
         val database =
             DatabaseProvider.getDatabase(
                 applicationContext
@@ -139,6 +159,26 @@ class LocationForegroundService : Service() {
         flags: Int,
         startId: Int
     ): Int {
+
+        Log.d(
+            "LocationForegroundService",
+            "========================================"
+        )
+
+        Log.d(
+            "LocationForegroundService",
+            "SERVICE INICIADO"
+        )
+
+        Log.d(
+            "LocationForegroundService",
+            "Intent action = ${intent?.action}"
+        )
+
+        Log.d(
+            "LocationForegroundService",
+            "========================================"
+        )
 
         startForeground(
             NOTIFICATION_ID,
@@ -191,13 +231,18 @@ class LocationForegroundService : Service() {
     private fun startLocationUpdates() {
 
         if (simulationActive) {
+
             Log.d(
                 "LocationForegroundService",
-                "GPS não iniciado: simulação ativa"
+                "Localização iniciada: " +
+                        "interval=${currentUpdateInterval / 1000}s " +
+                        "minInterval=${currentUpdateInterval / 1000}s " +
+                        "priority=$currentPriority " +
+                        "generation=$locationProcessingGeneration"
             )
+
             return
         }
-
 
         if (
             ContextCompat.checkSelfPermission(
@@ -206,9 +251,9 @@ class LocationForegroundService : Service() {
             ) != PackageManager.PERMISSION_GRANTED
         ) {
 
-            println(
-                "LocationForegroundService: " +
-                        "permissão de localização não concedida"
+            Log.d(
+                "LocationForegroundService",
+                "Localização não iniciada: permissão não concedida"
             )
 
             stopSelf()
@@ -219,42 +264,81 @@ class LocationForegroundService : Service() {
             return
         }
 
-        val request = LocationRequest.Builder(
-            Priority.PRIORITY_HIGH_ACCURACY,
-            currentUpdateInterval
-        )
-            .setMinUpdateIntervalMillis(
-                minOf(
-                    currentUpdateInterval,
-                    AppConfig.OUTSIDE_MIN_UPDATE_INTERVAL
-                )
+        val callbackGeneration =
+            ++locationCallbackGeneration
+
+        val request =
+            LocationRequest.Builder(
+                currentPriority,
+                currentUpdateInterval
             )
-            .build()
-
-        locationCallback = object : LocationCallback() {
-
-            override fun onLocationResult(
-                result: LocationResult
-            ) {
-
-                if (simulationActive) {
-                    return
-                }
-
-                val location =
-                    result.lastLocation
-                        ?: return
-
-                println(
-                    "LocationForegroundService: " +
-                            "${location.latitude}, ${location.longitude}"
+                .setMinUpdateIntervalMillis(
+                    currentUpdateInterval
                 )
+                .build()
 
-                LocationMonitorState.updateLocation(location)
+        locationCallback =
+            object : LocationCallback() {
 
-                checkLocations(location)
+                override fun onLocationResult(
+                    result: LocationResult
+                ) {
+
+                    if (simulationActive) {
+                        return
+                    }
+
+                    if (
+                        callbackGeneration !=
+                        locationCallbackGeneration
+                    ) {
+
+                        Log.d(
+                            "LocationForegroundService",
+                            "Localização ignorada: callback antigo"
+                        )
+
+                        return
+                    }
+
+                    val location =
+                        result.lastLocation
+                            ?: return
+
+                    if (
+                        isDuplicateLocation(
+                            location
+                        )
+                    ) {
+
+                        Log.d(
+                            "LocationForegroundService",
+                            "Localização duplicada/antiga ignorada: " +
+                                    "${location.latitude}, " +
+                                    "${location.longitude} | " +
+                                    "time=${location.time}"
+                        )
+
+                        return
+                    }
+
+                    Log.d(
+                        "LocationForegroundService",
+                        "Localização recebida: " +
+                                "${location.latitude}, " +
+                                "${location.longitude} | " +
+                                "time=${location.time}"
+                    )
+
+                    LocationMonitorState.updateLocation(
+                        location
+                    )
+
+                    checkLocations(
+                        location
+                    )
+                }
             }
-        }
 
         fusedLocationClient.requestLocationUpdates(
             request,
@@ -262,21 +346,33 @@ class LocationForegroundService : Service() {
             Looper.getMainLooper()
         )
 
-        println(
-            "LocationForegroundService: " +
-                    "localização iniciada"
+        Log.d(
+            "LocationForegroundService",
+            "Localização iniciada: " +
+                    "interval=${currentUpdateInterval / 1000}s " +
+                    "priority=$currentPriority " +
+                    "generation=$callbackGeneration"
         )
     }
+
 
     private val locationEnteredAt =
         mutableMapOf<String, Long>()
 
 
-    //private var currentUpdateInterval =
-      //  AppConfig.OUTSIDE_UPDATE_INTERVAL
 
-    private var currentUpdateInterval =
-        AppConfig.outsideUpdateInterval()
+    private fun priorityForInterval(
+        interval: Long
+    ): Int {
+
+        return if (
+            interval == AppConfig.outsideUpdateInterval()
+        ) {
+            Priority.PRIORITY_HIGH_ACCURACY
+        } else {
+            Priority.PRIORITY_BALANCED_POWER_ACCURACY
+        }
+    }
 
     private fun checkLocations(
         currentLocation: Location
@@ -419,35 +515,45 @@ class LocationForegroundService : Service() {
         locations: List<LocationPoint>
     ): Long {
 
-        val now =
-            System.currentTimeMillis()
+        val now = System.currentTimeMillis()
 
+        // Todas as zonas onde estamos atualmente dentro
+        val insideStatuses =
+            statuses.filter { it.isInside }
+
+        // Se não estamos dentro de nenhuma zona,
+        // usamos o intervalo de fora.
+        if (insideStatuses.isEmpty()) {
+            return AppConfig.outsideUpdateInterval()
+        }
+
+        // Apenas zonas com "Contar tempo" ativo
+        // participam no cálculo do tempo dentro da zona.
         val trackTimeLocationIds =
             locations
                 .filter { it.trackTime }
                 .map { it.id }
                 .toSet()
 
-        val insideStatuses =
-            statuses.filter { status ->
-
-                status.isInside &&
-                        status.locationId in trackTimeLocationIds
+        val insideTrackedStatuses =
+            insideStatuses.filter { status ->
+                status.locationId in trackTimeLocationIds
             }
 
-        // Não está dentro de nenhuma zona
-        // que tenha "Contar tempo" ativado.
-        if (insideStatuses.isEmpty()) {
-
-            return AppConfig.outsideUpdateInterval()
+        // Estamos dentro de uma zona, mas nenhuma das zonas
+        // atuais tem "Contar tempo" ativo.
+        //
+        // Neste caso continuamos em modo de baixo consumo,
+        // mas não avançamos para os intervalos de 1h/3h.
+        if (insideTrackedStatuses.isEmpty()) {
+            return AppConfig.justEnteredUpdateInterval()
         }
 
-        // Procuramos há quanto tempo está dentro
-        // das zonas que têm contagem de tempo ativa.
-        var insideTime =
-            Long.MAX_VALUE
+        // Procuramos o menor tempo dentro das zonas
+        // que têm "Contar tempo" ativo.
+        var insideTime = Long.MAX_VALUE
 
-        insideStatuses.forEach { status ->
+        insideTrackedStatuses.forEach { status ->
 
             val enteredAt =
                 locationEnteredAt[status.locationId]
@@ -465,7 +571,6 @@ class LocationForegroundService : Service() {
                 )
 
                 if (time < insideTime) {
-
                     insideTime = time
                 }
 
@@ -514,29 +619,40 @@ class LocationForegroundService : Service() {
                 locations
             )
 
-        if (newInterval == currentUpdateInterval) {
+        val newPriority =
+            priorityForInterval(
+                newInterval
+            )
+
+        if (
+            newInterval == currentUpdateInterval &&
+            newPriority == currentPriority
+        ) {
             return
         }
 
-       // Log.d(
-        //    "LocationForegroundService",
-       //     "Intervalo: " +
-        //            "${currentUpdateInterval / 60_000} min → " +
-       //             "${newInterval / 60_000} min"
-        //)
         Log.d(
             "LocationForegroundService",
-            "Intervalo: " +
+            "Configuração de localização: " +
                     "${currentUpdateInterval / 1000}s → " +
-                    "${newInterval / 1000}s"
+                    "${newInterval / 1000}s | " +
+                    "priority=$currentPriority → $newPriority"
         )
 
         currentUpdateInterval = newInterval
+        currentPriority = newPriority
+
+        LocationMonitorState.updatePriority(
+            currentPriority
+        )
 
         restartLocationUpdates()
     }
 
     private fun restartLocationUpdates() {
+
+        // Invalidar imediatamente o callback anterior.
+        locationCallbackGeneration++
 
         locationCallback?.let { callback ->
 
@@ -548,67 +664,17 @@ class LocationForegroundService : Service() {
         locationCallback = null
 
         if (simulationActive) {
+
             Log.d(
                 "LocationForegroundService",
                 "GPS não reiniciado: simulação ativa"
             )
+
             return
         }
 
         startLocationUpdates()
     }
-
-    // Apenas utilizado durante desenvolvimento.
-//    private fun simulateLocation(
-//        latitude: Double,
-//        longitude: Double
-//    ) {
-//
-//        simulationActive = true
-//        locationProcessingGeneration++
-//
-//        println(
-//            "LocationForegroundService: GPS pausado para teste"
-//        )
-//
-//        stopLocationUpdates()
-//
-//        val simulatedLocation =
-//            Location("simulation").apply {
-//                this.latitude = latitude
-//                this.longitude = longitude
-//            }
-//
-//        println(
-//            "LocationForegroundService: SIMULAÇÃO $latitude, $longitude"
-//        )
-//
-//        LocationMonitorState.updateLocation(
-//            simulatedLocation
-//        )
-//
-//        checkLocations(
-//            simulatedLocation
-//        )
-//
-//
-//        handler.postDelayed({
-//
-//            simulationActive = false
-//            locationProcessingGeneration++
-//
-//            println(
-//                "LocationForegroundService: GPS retomado"
-//            )
-//
-//            startLocationUpdates()
-//
-//        }, 20_000)
-//
-//
-//
-//    }
-
 
     // Apenas utilizado durante desenvolvimento.
     private fun simulateLocation(

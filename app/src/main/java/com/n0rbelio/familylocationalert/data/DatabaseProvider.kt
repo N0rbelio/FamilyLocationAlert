@@ -40,6 +40,7 @@ object DatabaseProvider {
                 .addMigrations(
                     MIGRATION_3_4
                 )
+                .fallbackToDestructiveMigration()
                 .build()
                 .also {
                     INSTANCE = it

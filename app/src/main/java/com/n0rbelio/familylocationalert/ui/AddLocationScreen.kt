@@ -40,6 +40,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.n0rbelio.familylocationalert.data.SmsAlertMode
 import androidx.compose.material3.Switch
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+
 
 @Composable
 fun AddLocationScreen(
@@ -216,14 +219,19 @@ fun AddLocationScreen(
 
         OutlinedTextField(
             value = latitude,
-            onValueChange = {
-                latitude = it
+            onValueChange = { value ->
+                if (value.all { it.isDigit() || it == '-' || it == '.' || it == ',' }) {
+                    latitude = value
+                }
             },
             modifier = Modifier.fillMaxWidth(),
             label = {
                 Text("Latitude")
             },
-            singleLine = true
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number
+            )
         )
 
         Spacer(
@@ -234,14 +242,19 @@ fun AddLocationScreen(
 
         OutlinedTextField(
             value = longitude,
-            onValueChange = {
-                longitude = it
+            onValueChange = { value ->
+                if (value.all { it.isDigit() || it == '-' || it == '.' || it == ',' }) {
+                    longitude = value
+                }
             },
             modifier = Modifier.fillMaxWidth(),
             label = {
                 Text("Longitude")
             },
-            singleLine = true
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number
+            )
         )
 
         Spacer(
@@ -252,14 +265,19 @@ fun AddLocationScreen(
 
         OutlinedTextField(
             value = radius,
-            onValueChange = {
-                radius = it
+            onValueChange = { value ->
+                if (value.all { it.isDigit() }) {
+                    radius = value
+                }
             },
             modifier = Modifier.fillMaxWidth(),
             label = {
                 Text("Raio (metros)")
             },
-            singleLine = true
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number
+            )
         )
 
         Spacer(

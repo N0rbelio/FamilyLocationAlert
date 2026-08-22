@@ -3,27 +3,27 @@ package com.n0rbelio.familylocationalert.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // ─────────────────────────────────────────────
-// LIGHT
-// ─────────────────────────────────────────────
-
-val AppPrimary = Color(0xFF3B82F6)
-val AppOnPrimary = Color.White
-
-val AppBackground = Color(0xFFF8FAFC)
-val AppOnBackground = Color(0xFF0F172A)
-
-val AppSurface = Color(0xFFFFFFFF)
-val AppOnSurface = Color(0xFF0F172A)
-
-val AppSecondary = Color(0xFF475569)
-val AppOnSecondary = Color.White
-
-// ─────────────────────────────────────────────
 // STATUS
 // ─────────────────────────────────────────────
 
 val StatusActive = Color(0xFF22C55E)
 val StatusInactive = Color(0xFF64748B)
+
+// ─────────────────────────────────────────────
+// LIGHT
+// ─────────────────────────────────────────────
+
+val LightBackground = Color(0xFFF1F5F9)
+val LightOnBackground = Color(0xFF1E293B)
+
+val LightSurface = Color(0xFFF8FAFC)
+val LightOnSurface = Color(0xFF1E293B)
+
+val LightPrimary = Color(0xFF3B82F6)
+val LightOnPrimary = Color.White
+
+val LightSecondary = Color(0xFF64748B)
+val LightOnSecondary = Color.White
 
 // ─────────────────────────────────────────────
 // DARK

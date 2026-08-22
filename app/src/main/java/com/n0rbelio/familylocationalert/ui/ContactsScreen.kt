@@ -35,6 +35,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.n0rbelio.familylocationalert.data.Contact
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.ui.text.input.KeyboardType
 
 @Composable
 fun ContactsScreen(
@@ -78,6 +82,17 @@ fun ContactsScreen(
                     tint = MaterialTheme.colorScheme.onBackground
                 )
             }
+
+            Icon(
+                imageVector = Icons.Default.People,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp)
+            )
+
+            Spacer(
+                modifier = Modifier.size(12.dp)
+            )
 
             Text(
                 text = "Contactos",
@@ -271,12 +286,14 @@ private fun AddContactDialog(
 
                 OutlinedTextField(
                     value = phoneNumber,
-                    onValueChange = {
-                        phoneNumber = it
+                    onValueChange = { value ->
+                        if (value.all { it.isDigit() }) {
+                            phoneNumber = value
+                        }
                     },
-                    label = {
-                        Text("Número de telefone")
-                    },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Phone
+                    ),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )

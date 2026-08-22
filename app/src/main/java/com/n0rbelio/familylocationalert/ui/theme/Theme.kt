@@ -6,19 +6,23 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import android.app.Activity
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 private val LightColorScheme = lightColorScheme(
-    primary = AppPrimary,
-    onPrimary = AppOnPrimary,
+    primary = LightPrimary,
+    onPrimary = LightOnPrimary,
 
-    secondary = AppSecondary,
-    onSecondary = AppOnSecondary,
+    secondary = LightSecondary,
+    onSecondary = LightOnSecondary,
 
-    background = AppBackground,
-    onBackground = AppOnBackground,
+    background = LightBackground,
+    onBackground = LightOnBackground,
 
-    surface = AppSurface,
-    onSurface = AppOnSurface,
+    surface = LightSurface,
+    onSurface = LightOnSurface,
 
     surfaceVariant = Color(0xFFE2E8F0),
     onSurfaceVariant = Color(0xFF475569)
@@ -27,9 +31,6 @@ private val LightColorScheme = lightColorScheme(
 private val DarkColorScheme = darkColorScheme(
     primary = DarkPrimary,
     onPrimary = DarkOnPrimary,
-
-    secondary = AppSecondary,
-    onSecondary = AppOnSecondary,
 
     background = DarkBackground,
     onBackground = DarkOnBackground,
@@ -59,4 +60,16 @@ fun FamilyLocationAlertTheme(
         typography = Typography,
         content = content
     )
+    val view = LocalView.current
+
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightNavigationBars = !darkTheme
+                isAppearanceLightStatusBars = !darkTheme
+            }
+        }
+    }
 }
