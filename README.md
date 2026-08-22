@@ -4,7 +4,7 @@
 
 FamilyLocationAlert is an Android application for monitoring a device's location, detecting entry and exit events from configurable geographical zones, and optionally notifying selected contacts through SMS.
 
-> ⚠️ **Development status:** FamilyLocationAlert is currently under active development. Version `0.0.8` is not considered a final release, and application behaviour, UI, database structures and internal architecture may change in future versions.
+> ⚠️ **Development status:** FamilyLocationAlert is currently under active development. Version `0.0.10` is not considered a final release, and application behaviour, UI, database structures and internal architecture may change in future versions.
 
 [![Build](https://github.com/N0rbelio/FamilyLocationAlert/actions/workflows/build.yml/badge.svg)](https://github.com/N0rbelio/FamilyLocationAlert/actions/workflows/build.yml)
 [![License](https://img.shields.io/github/license/N0rbelio/FamilyLocationAlert)](LICENSE)
@@ -398,9 +398,9 @@ When an event is detected, the event processor determines which actions should b
 
 ---
 
-## Version 0.0.8
+## Version 0.0.10
 
-Version `0.0.8` represents a significant expansion of the project.
+Version `0.0.10` represents a significant expansion of the project.
 
 ### Added
 
@@ -570,7 +570,7 @@ https://github.com/N0rbelio/FamilyLocationAlert
 
 ## Current Version
 
-**0.0.8**
+**0.0.10**
 
 ---
 
@@ -578,4 +578,4 @@ https://github.com/N0rbelio/FamilyLocationAlert
 
 🚧 **Active development**
 
-The current `0.0.8` version is a development milestone and should not be considered a stable final release.
+The current `0.0.10` version is a development milestone and should not be considered a stable final release.
