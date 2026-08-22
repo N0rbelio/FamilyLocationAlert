@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -32,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.android.gms.location.Priority
 import com.n0rbelio.familylocationalert.ui.theme.StatusActive
 import com.n0rbelio.familylocationalert.ui.theme.StatusInactive
 
@@ -45,6 +44,10 @@ fun HomeScreen(
     var menuExpanded by remember {
         mutableStateOf(false)
     }
+
+    val active = homeViewModel.monitoring
+    val latitude = homeViewModel.latitude
+    val longitude = homeViewModel.longitude
 
     Box(
         modifier = Modifier
@@ -74,7 +77,7 @@ fun HomeScreen(
         )
 
         // ─────────────────────────────────────
-        // ESTADO
+        // DASHBOARD
         // ─────────────────────────────────────
 
         Column(
@@ -89,8 +92,9 @@ fun HomeScreen(
                 Arrangement.Center
         ) {
 
-            val active =
-                homeViewModel.monitoring
+            // ─────────────────────────────────
+            // ESTADO
+            // ─────────────────────────────────
 
             Box(
                 modifier = Modifier
@@ -108,8 +112,10 @@ fun HomeScreen(
 
                 Text(
                     text = if (active) "✓" else "×",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    style =
+                        MaterialTheme.typography.headlineLarge,
+                    color =
+                        MaterialTheme.colorScheme.onPrimary
                 )
             }
 
@@ -123,46 +129,11 @@ fun HomeScreen(
                 } else {
                     "Monitorização inativa"
                 },
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onBackground
+                style =
+                    MaterialTheme.typography.headlineSmall,
+                color =
+                    MaterialTheme.colorScheme.onBackground
             )
-
-            Spacer(
-                modifier = Modifier.size(16.dp)
-            )
-
-            // ─────────────────────────────────
-            // CONTROLOS DE MONITORIZAÇÃO
-            // ─────────────────────────────────
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.spacedBy(12.dp)
-            ) {
-
-                Button(
-                    onClick = {
-                        homeViewModel.startMonitoring()
-                    },
-                    modifier = Modifier.weight(1f),
-                    enabled = !active
-                ) {
-
-                    Text("Iniciar")
-                }
-
-                Button(
-                    onClick = {
-                        homeViewModel.stopMonitoring()
-                    },
-                    modifier = Modifier.weight(1f),
-                    enabled = active
-                ) {
-
-                    Text("Parar")
-                }
-            }
 
             Spacer(
                 modifier = Modifier.size(24.dp)
@@ -171,12 +142,6 @@ fun HomeScreen(
             // ─────────────────────────────────
             // LOCALIZAÇÃO ATUAL
             // ─────────────────────────────────
-
-            val latitude =
-                homeViewModel.latitude
-
-            val longitude =
-                homeViewModel.longitude
 
             Text(
                 text =
@@ -195,87 +160,31 @@ fun HomeScreen(
             )
 
             Spacer(
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(16.dp)
             )
 
             // ─────────────────────────────────
-            // TESTES DE LOCALIZAÇÃO
+            // MODO DE LOCALIZAÇÃO
             // ─────────────────────────────────
 
-            Text(
-                text = "Testes de localização",
-                style =
-                    MaterialTheme.typography.titleMedium,
-                color =
-                    MaterialTheme.colorScheme.onBackground
-            )
+            if (active) {
 
-            Spacer(
-                modifier = Modifier.size(12.dp)
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.spacedBy(12.dp)
-            ) {
-
-                Button(
-                    onClick = {
-
-                        homeViewModel.simulateLocation(
-                            latitude = 40.8725,
-                            longitude = -8.6125786
-                        )
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-
-                    Text("Dentro")
-                }
-
-                Button(
-                    onClick = {
-
-                        homeViewModel.simulateLocation(
-                            latitude = 40.8755,
-                            longitude = -8.6125786
-                        )
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-
-                    Text("Fora")
-                }
+                Text(
+                    text =
+                        if (
+                            homeViewModel.locationPriority ==
+                            Priority.PRIORITY_HIGH_ACCURACY
+                        ) {
+                            "🎯 Precisão: Alta"
+                        } else {
+                            "🔋 Precisão: Poupança de energia"
+                        },
+                    style =
+                        MaterialTheme.typography.bodyMedium,
+                    color =
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-
-            Spacer(
-                modifier = Modifier.size(8.dp)
-            )
-
-            Button(
-                onClick = {
-                    homeViewModel.resumeRealLocation()
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-
-                Text("Retomar GPS")
-            }
-
-            Spacer(
-                modifier = Modifier.size(8.dp)
-            )
-
-            Text(
-                text =
-                    "A e B usam coordenadas fixas para testar " +
-                            "entrada e saída das zonas.",
-                style =
-                    MaterialTheme.typography.bodySmall,
-                color =
-                    MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
 
         // ─────────────────────────────────────

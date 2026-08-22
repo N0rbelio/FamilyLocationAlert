@@ -48,6 +48,10 @@ class HomeViewModel(
     var selectedContactIds by mutableStateOf<Set<String>>(emptySet())
         private set
 
+    var locationPriority by mutableStateOf(
+        Priority.PRIORITY_HIGH_ACCURACY
+    )
+        private set
 
     private val locationDao =
         DatabaseProvider.getDatabase(getApplication()).locationDao()
@@ -100,56 +104,6 @@ class HomeViewModel(
             }
     }
 
-//    fun getCurrentLocation(
-//        onResult: (latitude: Double, longitude: Double) -> Unit,
-//        onError: () -> Unit
-//    ) {
-//        val context = getApplication<Application>()
-//
-//        if (
-//            ContextCompat.checkSelfPermission(
-//                context,
-//                Manifest.permission.ACCESS_FINE_LOCATION
-//            ) != PackageManager.PERMISSION_GRANTED &&
-//            ContextCompat.checkSelfPermission(
-//                context,
-//                Manifest.permission.ACCESS_COARSE_LOCATION
-//            ) != PackageManager.PERMISSION_GRANTED
-//        ) {
-//            onError()
-//            return
-//        }
-//
-//        val fusedLocationClient =
-//            LocationServices.getFusedLocationProviderClient(context)
-//
-//        val request = CurrentLocationRequest.Builder()
-//            .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
-//            .setMaxUpdateAgeMillis(5_000)
-//            .build()
-//
-//        fusedLocationClient
-//            .getCurrentLocation(request, null)
-//            .addOnSuccessListener { location ->
-//
-//                if (location != null) {
-//
-//                    onResult(
-//                        location.latitude,
-//                        location.longitude
-//                    )
-//
-//                } else {
-//
-//                    onError()
-//                }
-//            }
-//            .addOnFailureListener {
-//
-//                onError()
-//            }
-//    }
-
     init {
         loadLocations()
         observeLocationService()
@@ -166,6 +120,7 @@ class HomeViewModel(
         trackTime: Boolean
     ) {
         viewModelScope.launch {
+
 
             locationDao.update(
                 id = id,
@@ -283,6 +238,14 @@ class HomeViewModel(
 
         viewModelScope.launch {
 
+            LocationMonitorState.locationPriority.collectLatest {
+                locationPriority = it
+            }
+        }
+
+
+            viewModelScope.launch {
+
             LocationMonitorState.currentLocation.collectLatest { location ->
 
                 latitude = location?.latitude
@@ -349,7 +312,7 @@ class HomeViewModel(
 
 
 
-    private fun loadLocations() {
+    fun loadLocations() {
         viewModelScope.launch {
             locations = locationDao.getAll()
 
@@ -493,5 +456,4 @@ class HomeViewModel(
             intent
         )
     }
-
 }

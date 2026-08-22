@@ -25,12 +25,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
+import com.google.android.gms.location.Priority
+import androidx.compose.material.icons.filled.DeveloperBoard
 
 @Composable
 fun AdminScreen(
     onBackClick: () -> Unit = {},
     onContactsClick: () -> Unit = {},
-    onLocationsClick: () -> Unit = {}
+    onLocationsClick: () -> Unit = {},
+    onDevTestsClick: () -> Unit = {}
 ) {
 
     Column(
@@ -188,6 +191,59 @@ fun AdminScreen(
 
                         Text(
                             text = "Gerir os locais monitorizados.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            Spacer(
+                modifier = Modifier.size(16.dp)
+            )
+
+            // Dev e Tests
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onDevTestsClick,
+                colors = CardDefaults.cardColors(
+                    containerColor =
+                        MaterialTheme.colorScheme.surface
+                )
+            ) {
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+
+                    Icon(
+                        imageVector = Icons.Default.DeveloperBoard,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(32.dp)
+                    )
+
+                    Spacer(
+                        modifier = Modifier.size(16.dp)
+                    )
+
+                    Column {
+
+                        Text(
+                            text = "Dev e Teste",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        Spacer(
+                            modifier = Modifier.size(4.dp)
+                        )
+
+                        Text(
+                            text = "Funções de Dev.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

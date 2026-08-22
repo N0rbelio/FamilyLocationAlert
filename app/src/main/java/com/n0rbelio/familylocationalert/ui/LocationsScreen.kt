@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.filled.DeveloperBoard
 import com.n0rbelio.familylocationalert.data.LocationPoint
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.runtime.LaunchedEffect
@@ -84,6 +85,17 @@ fun LocationsScreen(
                     tint = MaterialTheme.colorScheme.onBackground
                 )
             }
+
+            Icon(
+                imageVector = Icons.Default.Place,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp)
+            )
+
+            Spacer(
+                modifier = Modifier.size(12.dp)
+            )
 
             Text(
                 text = "Zonas",

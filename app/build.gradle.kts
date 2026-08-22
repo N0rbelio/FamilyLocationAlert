@@ -11,11 +11,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.familylocationalert"
+        applicationId = "com.n0rbelio.familylocationalert"
         minSdk = 27
         targetSdk = 37
         versionCode = 1
-        versionName = "1.0"
+        versionName = "0.0.10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -57,7 +57,8 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
-    implementation("androidx.compose.material:material-icons-extended")
+    implementation(libs.androidx.compose.material.icons.extended)
+    implementation("androidx.biometric:biometric:1.4.0-alpha07")
 
 
 }
